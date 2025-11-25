@@ -254,6 +254,7 @@ df_q = (
 )
 df_m = df.groupby("MONTHLY", as_index=False)["AMOUNT_P"].sum().sort_values("MONTHLY")
 
+# 차트용: 백만원 단위
 df_year_plot = df_year.copy()
 df_year_plot["AMOUNT_P"] /= 1_000_000
 df_q_plot = df_q.copy()
@@ -527,7 +528,11 @@ with tab1:
             df_year_plot, x="YEARLY", y="AMOUNT_P",
             text="AMOUNT_P", labels={"AMOUNT_P": "판매액(백만원)"}
         )
-        fig_year.update_traces(texttemplate='%{y:,.0f}', textposition='outside')
+        fig_year.update_traces(
+            texttemplate='%{y:,.0f}',
+            textposition='outside',
+            hovertemplate='YEARLY=%{x}<br>판매액(백만원)=%{y:,.1f}<extra></extra>'
+        )
         fig_year.update_layout(yaxis_title="판매액(백만원)", xaxis_title="년도")
         fig_year.update_yaxes(tickformat=",.0f", rangemode="tozero")
         fig_year.update_xaxes(categoryorder="category ascending")
@@ -542,6 +547,9 @@ with tab1:
             df_q_plot, x="QUARTERLY", y="AMOUNT_P",
             markers=True, labels={"AMOUNT_P": "판매액(백만원)"}
         )
+        fig_q.update_traces(
+            hovertemplate='QUARTERLY=%{x}<br>판매액(백만원)=%{y:,.1f}<extra></extra>'
+        )
         fig_q.update_layout(yaxis_title="판매액(백만원)", xaxis_title="분기")
         fig_q.update_yaxes(tickformat=",.0f", rangemode="tozero")
         fig_q.update_xaxes(categoryorder="category ascending")
@@ -555,36 +563,39 @@ with tab1:
         df_m_plot, x="MONTHLY", y="AMOUNT_P",
         markers=True, labels={"AMOUNT_P": "판매액(백만원)"}
     )
+    fig_m.update_traces(
+        hovertemplate='MONTHLY=%{x}<br>판매액(백만원)=%{y:,.1f}<extra></extra>'
+    )
     fig_m.update_layout(yaxis_title="판매액(백만원)", xaxis_title="월")
     fig_m.update_yaxes(tickformat=",.0f", rangemode="tozero")
     fig_m.update_xaxes(categoryorder="category ascending")
     st.plotly_chart(fig_m, use_container_width=True)
 
-    # ----- TAB1 RAW DATA -----
+    # ----- TAB1 RAW DATA (백만원 단위, 소수점 1자리) -----
     df_tab1_year = df_year[["YEARLY", "AMOUNT_P"]].copy()
     df_tab1_year["기간구분"] = "YEARLY"
     df_tab1_year["기간명"] = df_tab1_year["YEARLY"]
-    df_tab1_year.rename(columns={"AMOUNT_P": "판매액(원)"}, inplace=True)
-    df_tab1_year = df_tab1_year[["기간구분", "기간명", "판매액(원)"]]
+    df_tab1_year["판매액(백만원)"] = (df_tab1_year["AMOUNT_P"] / 1_000_000).round(1)
+    df_tab1_year = df_tab1_year[["기간구분", "기간명", "판매액(백만원)"]]
 
     df_tab1_quarter = df_q[["QUARTERLY", "AMOUNT_P"]].copy()
     df_tab1_quarter["기간구분"] = "QUARTERLY"
     df_tab1_quarter["기간명"] = df_tab1_quarter["QUARTERLY"]
-    df_tab1_quarter.rename(columns={"AMOUNT_P": "판매액(원)"}, inplace=True)
-    df_tab1_quarter = df_tab1_quarter[["기간구분", "기간명", "판매액(원)"]]
+    df_tab1_quarter["판매액(백만원)"] = (df_tab1_quarter["AMOUNT_P"] / 1_000_000).round(1)
+    df_tab1_quarter = df_tab1_quarter[["기간구분", "기간명", "판매액(백만원)"]]
 
     df_tab1_month = df_m[["MONTHLY", "AMOUNT_P"]].copy()
     df_tab1_month["기간구분"] = "MONTHLY"
     df_tab1_month["기간명"] = df_tab1_month["MONTHLY"]
-    df_tab1_month.rename(columns={"AMOUNT_P": "판매액(원)"}, inplace=True)
-    df_tab1_month = df_tab1_month[["기간구분", "기간명", "판매액(원)"]]
+    df_tab1_month["판매액(백만원)"] = (df_tab1_month["AMOUNT_P"] / 1_000_000).round(1)
+    df_tab1_month = df_tab1_month[["기간구분", "기간명", "판매액(백만원)"]]
 
     df_tab1_raw = pd.concat([df_tab1_year, df_tab1_quarter, df_tab1_month], ignore_index=True)
     cat_order_tab1 = ["YEARLY", "QUARTERLY", "MONTHLY"]
     df_tab1_raw["기간구분"] = pd.Categorical(df_tab1_raw["기간구분"], categories=cat_order_tab1, ordered=True)
     df_tab1_raw = df_tab1_raw.sort_values(["기간구분", "기간명"])
 
-    st.subheader("Raw Data (카테고리별 합계)")
+    st.subheader("Raw Data (카테고리별 합계 - 백만원 단위)")
     st.dataframe(df_tab1_raw, use_container_width=True)
 
 
@@ -592,7 +603,7 @@ with tab1:
 # ◆ TAB2 – 카테고리/채널별 판매 추이 (판매액 & 점유율 나란히)
 # ======================================================
 with tab2:
-    st.header(f"{category_group} - 채널별 판매 및 점유율")
+    st.header(f"{category_group} - 채널별 판매 및 점유율 (백만원 기준)")
 
     # 채널 필터 (범례 대신 이걸로 100% 재계산)
     selected_channels = st.multiselect(
@@ -637,21 +648,33 @@ with tab2:
     col_y1, col_y2 = st.columns(2)
 
     with col_y1:
-        st.caption("년도별 / 채널별 판매액 (백만원)")
+        st.caption("년도별 / 채널별 판매액 (백만원, 누적막대)")
         if not df_channel_year_trend.empty:
-            fig_channel_year = px.bar(
-                df_channel_year_trend,
-                x="YEARLY",
-                y="AMOUNT_M",
-                color="MARKET_TYPE_NAME",
-                color_discrete_map=channel_color_map,
-                barmode="group",
-                text="AMOUNT_M",
-                labels={"AMOUNT_M": "판매액(백만원)", "MARKET_TYPE_NAME": "채널"},
-                category_orders={"MARKET_TYPE_NAME": selected_channels}
+            # 100%가 아닌 '매출액 그대로' 누적막대로 표현 + 우측 ms와 동일 순서로 쌓기
+            if not df_channel_year_share_pivot_sel.empty:
+                channel_order_year = list(df_channel_year_share_pivot_sel.columns)
+            else:
+                channel_order_year = selected_channels
+
+            fig_channel_year = go.Figure()
+            for ch in channel_order_year:
+                df_temp = df_channel_year_trend[df_channel_year_trend["MARKET_TYPE_NAME"] == ch]
+                if df_temp.empty:
+                    continue
+                fig_channel_year.add_trace(go.Bar(
+                    x=df_temp["YEARLY"],
+                    y=df_temp["AMOUNT_M"],
+                    name=ch,
+                    marker_color=channel_color_map.get(ch),
+                    text=df_temp["AMOUNT_M"].apply(lambda v: f"{v:,.0f}"),
+                    textposition="inside"
+                ))
+            fig_channel_year.update_layout(
+                barmode="stack",
+                yaxis_title="판매액(백만원)",
+                xaxis_title="년도",
+                legend_title="채널"
             )
-            fig_channel_year.update_traces(texttemplate='%{y:,.0f}', textposition='inside')
-            fig_channel_year.update_layout(yaxis_title="판매액(백만원)", xaxis_title="년도", legend_title="채널")
             fig_channel_year.update_yaxes(tickformat=",.0f", rangemode="tozero")
             fig_channel_year.update_xaxes(categoryorder="category ascending")
             st.plotly_chart(fig_channel_year, use_container_width=True)
@@ -688,6 +711,8 @@ with tab2:
     df_channel_quarter_trend = df_channel_quarter[df_channel_quarter["MARKET_TYPE_NAME"].isin(selected_channels)].copy()
     if not df_channel_quarter_trend.empty:
         df_channel_quarter_trend["AMOUNT_M"] = df_channel_quarter_trend["AMOUNT_P"] / 1_000_000
+        # 원 단위는 툴팁에서 안 보이도록 제거
+        df_channel_quarter_trend = df_channel_quarter_trend.drop(columns=["AMOUNT_P"], errors="ignore")
 
     df_channel_quarter_sel = df_channel_quarter[df_channel_quarter["MARKET_TYPE_NAME"].isin(selected_channels)].copy()
     if not df_channel_quarter_sel.empty:
@@ -754,6 +779,8 @@ with tab2:
 
     df_channel_month_trend = df_channel_month[df_channel_month["MARKET_TYPE_NAME"].isin(selected_channels)].copy()
     df_channel_month_trend["AMOUNT_M"] = df_channel_month_trend["AMOUNT_P"] / 1_000_000
+    # 원 단위 컬럼 제거 (툴팁에서 안 보이게)
+    df_channel_month_trend = df_channel_month_trend.drop(columns=["AMOUNT_P"], errors="ignore")
 
     df_channel_month_sel = df_channel_month[df_channel_month["MARKET_TYPE_NAME"].isin(selected_channels)].copy()
     if not df_channel_month_sel.empty:
@@ -815,7 +842,7 @@ with tab2:
         else:
             st.info("월 기준 점유율을 계산할 데이터가 없습니다.")
 
-    # ----- TAB2 RAW DATA (현재 선택된 채널 기준 점유율) -----
+    # ----- TAB2 RAW DATA (현재 선택된 채널 기준 점유율, 백만원 단위) -----
     # YEARLY
     if not df_channel_year_sel.empty:
         df2_year = df_channel_year_sel.copy()
@@ -826,9 +853,10 @@ with tab2:
             "AMOUNT_P": "판매액(원)",
             "SHARE_SEL": "점유율(%)"
         }, inplace=True)
-        df2_year = df2_year[["기간구분", "기간명", "채널명", "판매액(원)", "점유율(%)"]]
+        df2_year["판매액(백만원)"] = (df2_year["판매액(원)"] / 1_000_000).round(1)
+        df2_year = df2_year[["기간구분", "기간명", "채널명", "판매액(백만원)", "점유율(%)"]]
     else:
-        df2_year = pd.DataFrame(columns=["기간구분", "기간명", "채널명", "판매액(원)", "점유율(%)"])
+        df2_year = pd.DataFrame(columns=["기간구분", "기간명", "채널명", "판매액(백만원)", "점유율(%)"])
 
     # QUARTERLY
     if not df_channel_quarter_sel.empty:
@@ -840,9 +868,10 @@ with tab2:
             "AMOUNT_P": "판매액(원)",
             "SHARE_SEL": "점유율(%)"
         }, inplace=True)
-        df2_quarter = df2_quarter[["기간구분", "기간명", "채널명", "판매액(원)", "점유율(%)"]]
+        df2_quarter["판매액(백만원)"] = (df2_quarter["판매액(원)"] / 1_000_000).round(1)
+        df2_quarter = df2_quarter[["기간구분", "기간명", "채널명", "판매액(백만원)", "점유율(%)"]]
     else:
-        df2_quarter = pd.DataFrame(columns=["기간구분", "기간명", "채널명", "판매액(원)", "점유율(%)"])
+        df2_quarter = pd.DataFrame(columns=["기간구분", "기간명", "채널명", "판매액(백만원)", "점유율(%)"])
 
     # MONTHLY
     if not df_channel_month_sel.empty:
@@ -854,9 +883,10 @@ with tab2:
             "AMOUNT_P": "판매액(원)",
             "SHARE_SEL": "점유율(%)"
         }, inplace=True)
-        df2_month = df2_month[["기간구분", "기간명", "채널명", "판매액(원)", "점유율(%)"]]
+        df2_month["판매액(백만원)"] = (df2_month["판매액(원)"] / 1_000_000).round(1)
+        df2_month = df2_month[["기간구분", "기간명", "채널명", "판매액(백만원)", "점유율(%)"]]
     else:
-        df2_month = pd.DataFrame(columns=["기간구분", "기간명", "채널명", "판매액(원)", "점유율(%)"])
+        df2_month = pd.DataFrame(columns=["기간구분", "기간명", "채널명", "판매액(백만원)", "점유율(%)"])
 
     df_tab2_raw = pd.concat([df2_year, df2_quarter, df2_month], ignore_index=True)
     cat_order_tab2 = ["YEARLY", "QUARTERLY", "MONTHLY"]
@@ -864,7 +894,7 @@ with tab2:
         df_tab2_raw["기간구분"] = pd.Categorical(df_tab2_raw["기간구분"], categories=cat_order_tab2, ordered=True)
         df_tab2_raw = df_tab2_raw.sort_values(["기간구분", "기간명", "채널명"])
 
-    st.subheader("Raw Data (채널별 합계/점유율 - 선택 채널 기준)")
+    st.subheader("Raw Data (채널별 합계/점유율 - 백만원 단위, 선택 채널 기준)")
     st.dataframe(df_tab2_raw, use_container_width=True)
 
 
@@ -872,7 +902,7 @@ with tab2:
 # ◆ TAB3 – 제조사별 판매 (판매액 & 점유율 나란히)
 # ======================================================
 with tab3:
-    st.header(f"{category_group} - 제조사별 판매 및 점유율")
+    st.header(f"{category_group} - 제조사별 판매 및 점유율 (백만원 기준)")
 
     # -------------------- 1) 년도 기준 --------------------
     st.subheader("년도 기준")
@@ -890,21 +920,33 @@ with tab3:
     col_y1, col_y2 = st.columns(2)
 
     with col_y1:
-        st.caption("년도별 / 제조사별 판매액 (백만원)")
+        st.caption("년도별 / 제조사별 판매액 (백만원, 누적막대)")
         if not df_manuf_year_trend.empty:
-            fig_manuf_year = px.bar(
-                df_manuf_year_trend,
-                x="YEARLY",
-                y="AMOUNT_M",
-                color="MANUF",
-                color_discrete_map=color_map,
-                barmode="group",
-                text="AMOUNT_M",
-                labels={"AMOUNT_M": "판매액(백만원)", "MANUF": "제조사"},
-                category_orders={"MANUF": sort_order_year}
+            # 100%가 아닌 '매출액 그대로' 누적막대로 표현 + 우측 ms와 동일 순서로 쌓기
+            if not df_share_year_pivot.empty:
+                manuf_order_year = list(df_share_year_pivot.columns)
+            else:
+                manuf_order_year = sort_order_year
+
+            fig_manuf_year = go.Figure()
+            for manuf in manuf_order_year:
+                df_temp = df_manuf_year_trend[df_manuf_year_trend["MANUF"] == manuf]
+                if df_temp.empty:
+                    continue
+                fig_manuf_year.add_trace(go.Bar(
+                    x=df_temp["YEARLY"],
+                    y=df_temp["AMOUNT_M"],
+                    name=manuf,
+                    marker_color=color_map.get(manuf),
+                    text=df_temp["AMOUNT_M"].apply(lambda v: f"{v:,.0f}"),
+                    textposition="inside"
+                ))
+            fig_manuf_year.update_layout(
+                barmode="stack",
+                yaxis_title="판매액(백만원)",
+                xaxis_title="년도",
+                legend_title="제조사"
             )
-            fig_manuf_year.update_traces(texttemplate='%{y:,.0f}', textposition='inside')
-            fig_manuf_year.update_layout(yaxis_title="판매액(백만원)", xaxis_title="년도", legend_title="제조사")
             fig_manuf_year.update_yaxes(tickformat=",.0f", rangemode="tozero")
             fig_manuf_year.update_xaxes(categoryorder="category ascending")
             st.plotly_chart(fig_manuf_year, use_container_width=True)
@@ -948,6 +990,8 @@ with tab3:
             ordered=True
         )
         df_manuf_quarter_trend = df_manuf_quarter_trend.sort_values(["QUARTERLY", "MANUF"])
+        # 원 단위 컬럼 제거 (툴팁에서 안 보이도록)
+        df_manuf_quarter_trend = df_manuf_quarter_trend.drop(columns=["AMOUNT_P"], errors="ignore")
 
     col_q1, col_q2 = st.columns(2)
 
@@ -986,7 +1030,7 @@ with tab3:
                 ))
             fig_quarter_share.update_layout(
                 barmode="stack",
-                yaxis=dict(range=[0, 100], title="점유율 (%)"),
+                yaxis=dict(range=[0, 100], title="점유율(%)"),
                 xaxis=dict(title="분기"),
                 legend_title="제조사",
                 legend_traceorder="reversed"
@@ -1008,6 +1052,8 @@ with tab3:
             ordered=True
         )
         df_trend = df_trend.sort_values(["MONTHLY", "MANUF"])
+        # 원 단위 컬럼 제거
+        df_trend = df_trend.drop(columns=["AMOUNT_P"], errors="ignore")
 
     col_m1, col_m2 = st.columns(2)
 
@@ -1056,7 +1102,7 @@ with tab3:
         else:
             st.info("월 기준 점유율을 계산할 데이터가 없습니다.")
 
-    # ----- TAB3 RAW DATA (채널명 포함) -----
+    # ----- TAB3 RAW DATA (채널명 포함, 백만원 단위) -----
     # YEARLY
     if not df_manuf_year_final.empty:
         df3_year = df_manuf_year_final.merge(
@@ -1072,9 +1118,10 @@ with tab3:
             "AMOUNT_P": "판매액(원)",
             "SHARE": "점유율(%)"
         }, inplace=True)
-        df3_year = df3_year[["기간구분", "기간명", "채널명", "제조사명", "판매액(원)", "점유율(%)"]]
+        df3_year["판매액(백만원)"] = (df3_year["판매액(원)"] / 1_000_000).round(1)
+        df3_year = df3_year[["기간구분", "기간명", "채널명", "제조사명", "판매액(백만원)", "점유율(%)"]]
     else:
-        df3_year = pd.DataFrame(columns=["기간구분", "기간명", "채널명", "제조사명", "판매액(원)", "점유율(%)"])
+        df3_year = pd.DataFrame(columns=["기간구분", "기간명", "채널명", "제조사명", "판매액(백만원)", "점유율(%)"])
 
     # QUARTERLY
     if not df_manuf_quarter_final.empty:
@@ -1091,9 +1138,10 @@ with tab3:
             "AMOUNT_P": "판매액(원)",
             "SHARE": "점유율(%)"
         }, inplace=True)
-        df3_quarter = df3_quarter[["기간구분", "기간명", "채널명", "제조사명", "판매액(원)", "점유율(%)"]]
+        df3_quarter["판매액(백만원)"] = (df3_quarter["판매액(원)"] / 1_000_000).round(1)
+        df3_quarter = df3_quarter[["기간구분", "기간명", "채널명", "제조사명", "판매액(백만원)", "점유율(%)"]]
     else:
-        df3_quarter = pd.DataFrame(columns=["기간구분", "기간명", "채널명", "제조사명", "판매액(원)", "점유율(%)"])
+        df3_quarter = pd.DataFrame(columns=["기간구분", "기간명", "채널명", "제조사명", "판매액(백만원)", "점유율(%)"])
 
     # MONTHLY
     if not df_manuf_final.empty:
@@ -1110,9 +1158,10 @@ with tab3:
             "AMOUNT_P": "판매액(원)",
             "SHARE": "점유율(%)"
         }, inplace=True)
-        df3_month = df3_month[["기간구분", "기간명", "채널명", "제조사명", "판매액(원)", "점유율(%)"]]
+        df3_month["판매액(백만원)"] = (df3_month["판매액(원)"] / 1_000_000).round(1)
+        df3_month = df3_month[["기간구분", "기간명", "채널명", "제조사명", "판매액(백만원)", "점유율(%)"]]
     else:
-        df3_month = pd.DataFrame(columns=["기간구분", "기간명", "채널명", "제조사명", "판매액(원)", "점유율(%)"])
+        df3_month = pd.DataFrame(columns=["기간구분", "기간명", "채널명", "제조사명", "판매액(백만원)", "점유율(%)"])
 
     df_tab3_raw = pd.concat([df3_year, df3_quarter, df3_month], ignore_index=True)
     cat_order_tab3 = ["YEARLY", "QUARTERLY", "MONTHLY"]
@@ -1120,5 +1169,5 @@ with tab3:
         df_tab3_raw["기간구분"] = pd.Categorical(df_tab3_raw["기간구분"], categories=cat_order_tab3, ordered=True)
         df_tab3_raw = df_tab3_raw.sort_values(["기간구분", "기간명", "제조사명"])
 
-    st.subheader("Raw Data (제조사별 합계/점유율)")
+    st.subheader("Raw Data (제조사별 합계/점유율 - 백만원 단위)")
     st.dataframe(df_tab3_raw, use_container_width=True)
