@@ -414,7 +414,7 @@ with tab1:
     )
     fig_year.update_traces(texttemplate='%{y:,.0f}', textposition='outside')
     fig_year.update_layout(yaxis_title="판매액(백만원)", xaxis_title="년도")
-    fig_year.update_yaxes(tickformat=",.0f")
+    fig_year.update_yaxes(tickformat=",.0f", rangemode="tozero")
     fig_year.update_xaxes(categoryorder="category ascending")
     st.plotly_chart(fig_year, use_container_width=True)
 
@@ -424,7 +424,7 @@ with tab1:
         markers=True, labels={"AMOUNT_P": "판매액(백만원)"}
     )
     fig_q.update_layout(yaxis_title="판매액(백만원)", xaxis_title="분기")
-    fig_q.update_yaxes(tickformat=",.0f")
+    fig_q.update_yaxes(tickformat=",.0f", rangemode="tozero")
     fig_q.update_xaxes(categoryorder="category ascending")
     st.plotly_chart(fig_q, use_container_width=True)
 
@@ -434,7 +434,7 @@ with tab1:
         markers=True, labels={"AMOUNT_P": "판매액(백만원)"}
     )
     fig_m.update_layout(yaxis_title="판매액(백만원)", xaxis_title="월")
-    fig_m.update_yaxes(tickformat=",.0f")
+    fig_m.update_yaxes(tickformat=",.0f", rangemode="tozero")
     fig_m.update_xaxes(categoryorder="category ascending")
     st.plotly_chart(fig_m, use_container_width=True)
 
@@ -501,7 +501,7 @@ with tab2:
         )
         fig_channel_year.update_traces(texttemplate='%{y:,.0f}', textposition='inside')
         fig_channel_year.update_layout(yaxis_title="판매액(백만원)", xaxis_title="년도", legend_title="채널")
-        fig_channel_year.update_yaxes(tickformat=",.0f")
+        fig_channel_year.update_yaxes(tickformat=",.0f", rangemode="tozero")
         fig_channel_year.update_xaxes(categoryorder="category ascending")
         st.plotly_chart(fig_channel_year, use_container_width=True)
 
@@ -547,7 +547,7 @@ with tab2:
             category_orders={"MARKET_TYPE_NAME": channel_name_sort_order}
         )
         fig_channel_quarter.update_layout(yaxis_title="판매액(백만원)", xaxis_title="분기", legend_title="채널")
-        fig_channel_quarter.update_yaxes(tickformat=",.0f")
+        fig_channel_quarter.update_yaxes(tickformat=",.0f", rangemode="tozero")
         fig_channel_quarter.update_xaxes(categoryorder="category ascending")
         st.plotly_chart(fig_channel_quarter, use_container_width=True)
 
@@ -593,7 +593,7 @@ with tab2:
             category_orders={"MARKET_TYPE_NAME": channel_name_sort_order}
         )
         fig_channel_month.update_layout(yaxis_title="판매액(백만원)", xaxis_title="월", legend_title="채널")
-        fig_channel_month.update_yaxes(tickformat=",.0f")
+        fig_channel_month.update_yaxes(tickformat=",.0f", rangemode="tozero")
         fig_channel_month.update_xaxes(categoryorder="category ascending")
         st.plotly_chart(fig_channel_month, use_container_width=True)
 
@@ -708,7 +708,7 @@ with tab3:
         )
         fig_manuf_year.update_traces(texttemplate='%{y:,.0f}', textposition='inside')
         fig_manuf_year.update_layout(yaxis_title="판매액(백만원)", xaxis_title="년도", legend_title="제조사")
-        fig_manuf_year.update_yaxes(tickformat=",.0f")
+        fig_manuf_year.update_yaxes(tickformat=",.0f", rangemode="tozero")
         fig_manuf_year.update_xaxes(categoryorder="category ascending")
         st.plotly_chart(fig_manuf_year, use_container_width=True)
 
@@ -760,7 +760,7 @@ with tab3:
             category_orders={"MANUF": sort_order_quarter}
         )
         fig_manuf_quarter.update_layout(yaxis_title="판매액(백만원)", xaxis_title="분기", legend_title="제조사")
-        fig_manuf_quarter.update_yaxes(tickformat=",.0f")
+        fig_manuf_quarter.update_yaxes(tickformat=",.0f", rangemode="tozero")
         fig_manuf_quarter.update_xaxes(categoryorder="category ascending")
         st.plotly_chart(fig_manuf_quarter, use_container_width=True)
 
@@ -812,7 +812,7 @@ with tab3:
             category_orders={"MANUF": sort_order_month}
         )
         fig_trend.update_layout(yaxis_title="판매액(백만원)", xaxis_title="월", legend_title="제조사")
-        fig_trend.update_yaxes(tickformat=",.0f")
+        fig_trend.update_yaxes(tickformat=",.0f", rangemode="tozero")
         fig_trend.update_xaxes(categoryorder="category ascending")
         st.plotly_chart(fig_trend, use_container_width=True)
 
@@ -837,7 +837,7 @@ with tab3:
         fig_month_share.update_xaxes(categoryorder="category ascending")
         st.plotly_chart(fig_month_share, use_container_width=True)
 
-    # ----- TAB3 RAW DATA (여기에 채널명 추가) -----
+    # ----- TAB3 RAW DATA (채널명 포함) -----
     # YEARLY
     df3_year = df_manuf_year_final.merge(
         df_share_year[["MANUF", "YEARLY", "SHARE"]],
