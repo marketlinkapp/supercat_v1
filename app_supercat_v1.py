@@ -26,16 +26,32 @@ div[data-baseweb="select"] span {
     font-size: 1.2rem !important;
 }
 
-/* 탭 텍스트 색상 진한 파랑 + 굵게 */
-.stTabs button[role="tab"] {
+/* 탭 텍스트 더 크게 + 더 굵게 */
+.stTabs [role="tab"] > div {
     color: #004c99 !important;
-    font-weight: 600 !important;
+    font-size: 1.1rem !important;   /* ✅ 기존보다 1.2배 */
+    font-weight: 600 !important;    /* ✅ 굵게 */
 }
 
-/* 선택된 탭은 아래 테두리로 강조 */
-.stTabs button[role="tab"][aria-selected="true"] {
-    border-bottom: 3px solid #004c99 !important;
+/* 선택된 탭 더 굵게 + 진한 아래 테두리 */
+.stTabs [role="tab"][aria-selected="true"] > div {
+    border-bottom: 4px solid #004c99 !important;  /* ✅ 더 두껍게 */
+    padding-bottom: 6px !important;               /* ✅ 공간 확보 → 깔끔하게 보임 */
+    font-weight: 700 !important;                  /* ✅ 강조 */
 }
+
+/* 탭 위·아래 여백 적용 — 실제 렌더링 컨테이너 타겟 */
+div[data-testid="stTabs"] {
+    margin-top: 0.75rem !important;      /* ✅ 탭 위 여백 */
+    margin-bottom: 0 !important;
+    padding-bottom: 4rem !important;   /* ✅ 탭 아래 여백 */
+}
+
+/* ✅ 탭 아래 컨텐츠 시작 지점에 여백 추가 */
+div[data-testid="stTabs"] + div[data-testid="stVerticalBlock"] {
+    margin-top: 2.5rem !important;
+}
+
 
 /* 전체 헤더(h1/h2/h3) 폰트 크기를 기존의 약 85% 수준으로 축소 */
 .block-container h1,
@@ -197,14 +213,34 @@ def tighten_figure(fig, height=420):
     return fig
 
 
-def chart_card(caption_text: str, fig):
+def chart_card(caption_text: str, fig, category_name: str = None):
     """
-    설명 캡션(연한 회색) + 차트를 네모난 테두리로 감싸는 카드
+    설명 캡션(연한 회색) + (선택된 카테고리명) + 차트를 네모난 테두리로 감싸는 카드
     """
     fig = tighten_figure(fig)
     with st.container(border=True):
         st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+        # 1줄: 기존 캡션 (연한 회색 작은 글씨)
         st.caption(caption_text)
+
+        # 2줄: 선택된 카테고리명 (가운데 정렬, 검정, 조금 더 큰 폰트)
+        if category_name:
+            st.markdown(
+                f"""
+                <div style="
+                    text-align:center;
+                    font-size:1.1rem;
+                    font-weight:600;
+                    color:#555555;
+                    margin-top:2px;
+                    margin-bottom:4px;
+                ">
+                    {category_name}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
         st.markdown('<div style="margin-top:-6px;"></div>', unsafe_allow_html=True)
         st.plotly_chart(fig, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
@@ -649,12 +685,20 @@ channel_color_map = {ch: color_sequence_channel[i % len(color_sequence_channel)]
 # -------------------------
 tab1, tab2, tab3 = st.tabs(["카테고리별 판매 추이", "카테고리/채널별 판매 추이", "제조사별 판매 추이"])
 
+# ✅ 탭 아래 라인 추가
+#st.markdown("""
+#<div style="width:100%; margin-top:0.8rem;">
+#    <hr style="border:1px solid #d0d0d0;">
+#</div>
+#<div style="height:1.2rem;"></div>
+#""", unsafe_allow_html=True)
 
 # ======================================================
 # ◆ TAB1 ? 카테고리별 판매 추이
 # ======================================================
 with tab1:
-    st.header(f"{category_group} / {selected_channel_name}")
+    #st.header(f"{category_group} / {selected_channel_name}")
+    st.markdown("<div style='height:1.5rem;'></div>", unsafe_allow_html=True)
 
     # ===== 년도 기준 =====
     section_title("년도 기준")
@@ -718,7 +762,7 @@ with tab1:
             )
         # ----------------------------------------------------
 
-        chart_card(f"년도별 / 채널별 판매액 (백만원, {selected_channel_name})", fig_year)
+        chart_card(f"년도별 / 채널별 판매액 (백만원, {selected_channel_name})", fig_year, category_group)
     else:
         with st.container(border=True):
             st.caption(f"년도별 / 채널별 판매액 (백만원, {selected_channel_name})")
@@ -740,7 +784,7 @@ with tab1:
         fig_q.update_yaxes(tickformat=",.0f", rangemode="tozero")
         fig_q.update_xaxes(categoryorder="category ascending")
 
-        chart_card(f"분기별 / 채널별 판매액 (백만원, {selected_channel_name})", fig_q)
+        chart_card(f"분기별 / 채널별 판매액 (백만원, {selected_channel_name})", fig_q, category_group)
     else:
         with st.container(border=True):
             st.caption(f"분기별 / 채널별 판매액 (백만원, {selected_channel_name})")
@@ -759,7 +803,7 @@ with tab1:
     fig_m.update_yaxes(tickformat=",.0f", rangemode="tozero")
     fig_m.update_xaxes(categoryorder="category ascending")
 
-    chart_card(f"월별 / 채널별 판매액 (백만원, {selected_channel_name})", fig_m)
+    chart_card(f"월별 / 채널별 판매액 (백만원, {selected_channel_name})", fig_m, category_group)
 
     # ----- TAB1 RAW DATA -----
     section_title(f"Raw Data (카테고리별 합계, 백만원 단위, {selected_channel_name})")
@@ -771,14 +815,28 @@ with tab1:
 # ◆ TAB2 ? 카테고리/채널별 판매 추이
 # ======================================================
 with tab2:
-    st.header(f"{category_group} / {selected_channel_name}")
+    #st.header(f"{category_group} / {selected_channel_name}")
+    st.markdown("<div style='height:1.5rem;'></div>", unsafe_allow_html=True)
+    
+    #section_title("표시할 채널 선택 (선택된 채널로 점유율 재계산)")
+
+    # section_title(...) 대신 직접 마크다운으로 타이틀 + margin 조정
+    st.markdown(
+        """
+        <p class="section-title" style="margin-bottom:-0.75rem;">
+            표시할 채널 선택 (선택된 채널로 점유율 재계산)
+        </p>
+        """,
+        unsafe_allow_html=True,
+    )
 
     selected_channels = st.multiselect(
-        "표시할 채널 선택 (점유율 재계산)",
+        "",
         options=channel_name_sort_order,
         default=channel_name_sort_order,
-        help="선택한 채널들로만 점유율을 다시 100%로 맞춰 계산합니다."
+        key="channel_select_box",
     )
+
     if not selected_channels:
         st.warning("최소 1개 이상의 채널을 선택해주세요.")
         selected_channels = channel_name_sort_order
@@ -900,7 +958,7 @@ with tab2:
                     )
             # ----------------------------------------------------
 
-            chart_card("년도별 / 채널별 판매액 (백만원)", fig_channel_year)
+            chart_card("년도별 / 채널별 판매액 (백만원)", fig_channel_year, category_group)
 
         else:
             with st.container(border=True):
@@ -931,7 +989,7 @@ with tab2:
             )
             fig_channel_year_share.update_xaxes(categoryorder="category ascending")
 
-            chart_card("년도별 / 채널별 시장점유율 (%)", fig_channel_year_share)
+            chart_card("년도별 / 채널별 시장점유율 (%)", fig_channel_year_share, category_group)
         else:
             with st.container(border=True):
                 st.caption("년도별 / 채널별 시장점유율 (%)")
@@ -977,7 +1035,7 @@ with tab2:
             fig_channel_quarter.update_yaxes(tickformat=",.0f", rangemode="tozero")
             fig_channel_quarter.update_xaxes(categoryorder="category ascending")
 
-            chart_card("분기별 / 채널별 판매액 (백만원)", fig_channel_quarter)
+            chart_card("분기별 / 채널별 판매액 (백만원)", fig_channel_quarter, category_group)
         else:
             with st.container(border=True):
                 st.caption("분기별 / 채널별 판매액 (백만원)")
@@ -1003,7 +1061,7 @@ with tab2:
             )
             fig_channel_quarter_share.update_xaxes(categoryorder="category ascending")
 
-            chart_card("분기별 / 채널별 시장점유율 (%)", fig_channel_quarter_share)
+            chart_card("분기별 / 채널별 시장점유율 (%)", fig_channel_quarter_share, category_group)
         else:
             with st.container(border=True):
                 st.caption("분기별 / 채널별 시장점유율 (%)")
@@ -1048,7 +1106,7 @@ with tab2:
             fig_channel_month.update_yaxes(tickformat=",.0f", rangemode="tozero")
             fig_channel_month.update_xaxes(categoryorder="category ascending")
 
-            chart_card("월별 / 채널별 판매액 (백만원)", fig_channel_month)
+            chart_card("월별 / 채널별 판매액 (백만원)", fig_channel_month, category_group)
         else:
             with st.container(border=True):
                 st.caption("월별 / 채널별 판매액 (백만원)")
@@ -1074,7 +1132,7 @@ with tab2:
             )
             fig_channel_month_share.update_xaxes(categoryorder="category ascending")
 
-            chart_card("월별 / 채널별 시장점유율 (%)", fig_channel_month_share)
+            chart_card("월별 / 채널별 시장점유율 (%)", fig_channel_month_share, category_group)
         else:
             with st.container(border=True):
                 st.caption("월별 / 채널별 시장점유율 (%)")
@@ -1141,8 +1199,9 @@ with tab2:
 # ◆ TAB3 ? 제조사별 판매
 # ======================================================
 with tab3:
-    st.header(f"{category_group} / {selected_channel_name}")
-
+    #st.header(f"{category_group} / {selected_channel_name}")
+    st.markdown("<div style='height:1.5rem;'></div>", unsafe_allow_html=True)
+    
     # -------------------- 1) 년도 기준 -------------------->
     section_title("년도 기준")
 
@@ -1240,7 +1299,7 @@ with tab3:
                     )
             # ------------------------------------
 
-            chart_card(f"년도별 / 제조사별 판매액 (백만원, {selected_channel_name})", fig_manuf_year)
+            chart_card(f"년도별 / 제조사별 판매액 (백만원, {selected_channel_name})", fig_manuf_year, category_group)
         else:
             with st.container(border=True):
                 st.caption(f"년도별 / 제조사별 판매액 (백만원, {selected_channel_name})")
@@ -1268,7 +1327,7 @@ with tab3:
             )
             fig_year_share.update_xaxes(categoryorder="category ascending")
 
-            chart_card(f"년도별 / 제조사별 시장점유율 (%, {selected_channel_name})", fig_year_share)
+            chart_card(f"년도별 / 제조사별 시장점유율 (%, {selected_channel_name})", fig_year_share, category_group)
         else:
             with st.container(border=True):
                 st.caption(f"년도별 / 제조사별 시장점유율 (%, {selected_channel_name})")
@@ -1306,7 +1365,7 @@ with tab3:
             fig_manuf_quarter.update_yaxes(tickformat=",.0f", rangemode="tozero")
             fig_manuf_quarter.update_xaxes(categoryorder="category ascending")
 
-            chart_card(f"분기별 / 제조사별 판매액 (백만원, {selected_channel_name})", fig_manuf_quarter)
+            chart_card(f"분기별 / 제조사별 판매액 (백만원, {selected_channel_name})", fig_manuf_quarter, category_group)
         else:
             with st.container(border=True):
                 st.caption(f"분기별 / 제조사별 판매액 (백만원, {selected_channel_name})")
@@ -1333,7 +1392,7 @@ with tab3:
             )
             fig_quarter_share.update_xaxes(categoryorder="category ascending")
 
-            chart_card(f"분기별 / 제조사별 시장점유율 (%, {selected_channel_name})", fig_quarter_share)
+            chart_card(f"분기별 / 제조사별 시장점유율 (%, {selected_channel_name})", fig_quarter_share, category_group)
         else:
             with st.container(border=True):
                 st.caption(f"분기별 / 제조사별 시장점유율 (%, {selected_channel_name})")
@@ -1371,7 +1430,7 @@ with tab3:
             fig_trend.update_yaxes(tickformat=",.0f", rangemode="tozero")
             fig_trend.update_xaxes(categoryorder="category ascending")
 
-            chart_card(f"월별 / 제조사별 판매액 (백만원, {selected_channel_name})", fig_trend)
+            chart_card(f"월별 / 제조사별 판매액 (백만원, {selected_channel_name})", fig_trend, category_group)
         else:
             with st.container(border=True):
                 st.caption(f"월별 / 제조사별 판매액 (백만원, {selected_channel_name})")
@@ -1398,7 +1457,7 @@ with tab3:
             )
             fig_month_share.update_xaxes(categoryorder="category ascending")
 
-            chart_card(f"월별 / 제조사별 시장점유율 (%, {selected_channel_name})", fig_month_share)
+            chart_card(f"월별 / 제조사별 시장점유율 (%, {selected_channel_name})", fig_month_share, category_group)
         else:
             with st.container(border=True):
                 st.caption(f"월별 / 제조사별 시장점유율 (%, {selected_channel_name})")
