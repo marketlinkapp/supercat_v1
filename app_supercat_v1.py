@@ -99,13 +99,24 @@ def get_logo_path():
 
 
 def show_logo():
-    """좌측 상단에 로고 표시 (로그인 전/후 모두 사용)"""
+    """로그인 전/후 모두 좌측 상단에 로고 표시"""
     logo_path = get_logo_path()
-    
-    st.write("🔍 Detected logo path:", logo_path)
-    
-    if logo_path:
-        st.image(logo_path, width=140)
+    if not logo_path:
+        return
+
+    # 로그인 여부 체크
+    is_logged_in = st.session_state.get("login", False)
+
+    # ✅ 로그인 전 크게 / 로그인 후 기존 크기
+    logo_width = 260 if not is_logged_in else 200
+
+    # 위치 유지용 여백 (원래 있던 것 그대로)
+    st.markdown("<div style='height:45px'></div>", unsafe_allow_html=True)
+
+    # ✅ 컬럼 제거 → 크기 더 이상 줄어들지 않음
+    st.image(logo_path, width=logo_width)
+
+
 
 
 def get_conn():
@@ -216,38 +227,44 @@ def clean_channel_name(raw: str) -> str:
 # 1) 로그인
 # -------------------------
 def login():
-    # 로고 (로그인 전 좌측 상단)
-    show_logo()
-
+    # 로그인 페이지에서는 전체 레이아웃 폭을 좁게 (대시보드랑 분리됨)
     st.markdown("""
     <style>
+    /* 로그인 페이지에서만 적용됨 (로그인 후에는 login() 을 안 타기 때문에) */
+    .block-container {
+        max-width: 460px;          /* ✅ 화면이 아무리 커져도 가로 460px 정도만 사용 */
+        padding-top: 2rem;
+    }
     .login-title {
         text-align: center;
-        font-size: 1.4rem;
+        font-size: 1.3rem;
         font-weight: 600;
-        margin-top: 20px;
-        margin-bottom: 0.75rem;
+        margin-top: 0.5rem;
+        margin-bottom: 0.4rem;
     }
     .login-subtitle {
         text-align: center;
         font-size: 0.9rem;
         color: #666666;
-        margin-bottom: 1.5rem;
+        margin-bottom: 1.2rem;
     }
     </style>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="login-title">마켓링크 로그인</div>', unsafe_allow_html=True)
-    st.markdown('<div class="login-subtitle">로그인해주세요</div>', unsafe_allow_html=True)
+    # 회사 로고 (위쪽에 작게)
+    show_logo()
 
-    left, center, right = st.columns([1, 1, 1])
-    with center:
-        with st.container(border=True):
-            st.write("")  # 위 여백
-            user_id = st.text_input("ID", key="login_id")
-            password = st.text_input("PW", type="password", key="login_pw")
-            login_btn = st.button("로그인", use_container_width=True)
+    # 타이틀/부제목
+    st.markdown('<div class="login-title">대시보드 로그인</div>', unsafe_allow_html=True)
+    #st.markdown('<div class="login-subtitle">사내 계정으로 로그인해주세요</div>', unsafe_allow_html=True)
 
+    # 입력창과 버튼을 하나의 카드처럼
+    with st.container(border=True):
+        user_id = st.text_input("ID", key="login_id")
+        password = st.text_input("PW", type="password", key="login_pw")
+        login_btn = st.button("로그인", use_container_width=True)
+
+    # 로그인 처리 로직 (기존과 동일하게 유지)
     if login_btn:
         try:
             with get_conn() as conn:
@@ -265,6 +282,7 @@ def login():
 
         except Exception as e:
             st.error(f"DB 연결 오류: {e}")
+
 
 
 if 'login' not in st.session_state:
@@ -660,7 +678,8 @@ with tab1:
                 size=12
             ),
             hovertemplate='YEARLY=%{x}<br>판매액(백만원)=%{y:,.1f}<extra></extra>',
-            marker_color="#b3d9ff"             # 연한 파란 막대
+            marker_color="#b3d9ff",             # 연한 파란 막대
+            width=0.7  # 막대 폭 줄이기
         )
 
         fig_year.update_layout(
@@ -818,7 +837,8 @@ with tab2:
                     name=ch,
                     marker_color=channel_color_map.get(ch),
                     text=df_temp["AMOUNT_M"].apply(lambda v: f"{v:,.0f}"),
-                    textposition="inside"
+                    textposition="inside",
+                    width=0.7
                 ))
 
             fig_channel_year.update_layout(
@@ -900,7 +920,8 @@ with tab2:
                     name=ch,
                     marker_color=channel_color_map.get(ch),
                     text=df_channel_year_share_pivot_sel[ch].apply(lambda x: f"{x:.1f}%"),
-                    textposition="inside"
+                    textposition="inside",
+                    width=0.7
                 ))
             fig_channel_year_share.update_layout(
                 barmode="stack",
@@ -1157,7 +1178,8 @@ with tab3:
                     name=manuf,
                     marker_color=color_map.get(manuf),
                     text=df_temp["AMOUNT_M"].apply(lambda v: f"{v:,.0f}"),
-                    textposition="inside"
+                    textposition="inside",
+                    width=0.7
                 ))
 
             fig_manuf_year.update_layout(
@@ -1234,7 +1256,8 @@ with tab3:
                     name=manuf,
                     marker_color=color_map.get(manuf),
                     text=df_share_year_pivot[manuf].apply(lambda x: f"{x:.1f}%"),
-                    textposition="inside"
+                    textposition="inside",
+                    width=0.7
                 ))
             fig_year_share.update_layout(
                 barmode="stack",
