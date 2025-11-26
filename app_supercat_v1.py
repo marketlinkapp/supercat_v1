@@ -774,7 +774,7 @@ with tab2:
     st.header(f"{category_group} / {selected_channel_name}")
 
     selected_channels = st.multiselect(
-        "표시할 채널 선택",
+        "표시할 채널 선택 (점유율 재계산)",
         options=channel_name_sort_order,
         default=channel_name_sort_order,
         help="선택한 채널들로만 점유율을 다시 100%로 맞춰 계산합니다."
