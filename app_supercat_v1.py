@@ -29,25 +29,25 @@ div[data-baseweb="select"] span {
 /* 탭 텍스트 더 크게 + 더 굵게 */
 .stTabs [role="tab"] > div {
     color: #004c99 !important;
-    font-size: 1.1rem !important;   /* ✅ 기존보다 1.2배 */
-    font-weight: 600 !important;    /* ✅ 굵게 */
+    font-size: 1.1rem !important;   /* ? 기존보다 1.2배 */
+    font-weight: 600 !important;    /* ? 굵게 */
 }
 
 /* 선택된 탭 더 굵게 + 진한 아래 테두리 */
 .stTabs [role="tab"][aria-selected="true"] > div {
-    border-bottom: 4px solid #004c99 !important;  /* ✅ 더 두껍게 */
-    padding-bottom: 6px !important;               /* ✅ 공간 확보 → 깔끔하게 보임 */
-    font-weight: 700 !important;                  /* ✅ 강조 */
+    border-bottom: 4px solid #004c99 !important;  /* ? 더 두껍게 */
+    padding-bottom: 6px !important;               /* ? 공간 확보 → 깔끔하게 보임 */
+    font-weight: 700 !important;                  /* ? 강조 */
 }
 
-/* 탭 위·아래 여백 적용 — 실제 렌더링 컨테이너 타겟 */
+/* 탭 위·아래 여백 적용 ? 실제 렌더링 컨테이너 타겟 */
 div[data-testid="stTabs"] {
-    margin-top: 0.75rem !important;      /* ✅ 탭 위 여백 */
+    margin-top: 0.75rem !important;      /* ? 탭 위 여백 */
     margin-bottom: 0 !important;
-    padding-bottom: 4rem !important;   /* ✅ 탭 아래 여백 */
+    padding-bottom: 4rem !important;   /* ? 탭 아래 여백 */
 }
 
-/* ✅ 탭 아래 컨텐츠 시작 지점에 여백 추가 */
+/* ? 탭 아래 컨텐츠 시작 지점에 여백 추가 */
 div[data-testid="stTabs"] + div[data-testid="stVerticalBlock"] {
     margin-top: 2.5rem !important;
 }
@@ -123,16 +123,14 @@ def show_logo():
     # 로그인 여부 체크
     is_logged_in = st.session_state.get("login", False)
 
-    # ✅ 로그인 전 크게 / 로그인 후 기존 크기
+    # ? 로그인 전 크게 / 로그인 후 기존 크기
     logo_width = 260 if not is_logged_in else 200
 
     # 위치 유지용 여백 (원래 있던 것 그대로)
     st.markdown("<div style='height:45px'></div>", unsafe_allow_html=True)
 
-    # ✅ 컬럼 제거 → 크기 더 이상 줄어들지 않음
+    # ? 컬럼 제거 → 크기 더 이상 줄어들지 않음
     st.image(logo_path, width=logo_width)
-
-
 
 
 def get_conn():
@@ -157,6 +155,57 @@ def aggregate_amount_by_period(df: pd.DataFrame, period_col: str) -> pd.DataFram
           .sort_values(period_col)
     )
     return tmp
+
+def get_font_sizes_for_share(values, base_size):
+    sizes = []
+    for v in values:
+        try:
+            v = float(v)
+        except Exception:
+            v = 0.0
+
+        if v >= 30:
+            scale = 1.0      # 그대로
+        elif v >= 20:
+            scale = 1.0      # 그대로
+        elif v >= 10:
+            scale = 0.99     # 거의 그대로
+        elif v >= 5:
+            scale = 0.98
+        elif v > 0:
+            scale = 0.97     # 5% 미만도 97%
+        else:
+            scale = 0.97
+
+        sizes.append(round(base_size * scale))
+    return sizes
+
+
+def get_scaled_font_sizes(values, base_size, min_scale=0.75, max_scale=1.0):
+    vals = [float(v) for v in values]
+    if not vals:
+        return []
+
+    non_zero = [v for v in vals if v > 0]
+    if not non_zero:
+        return [base_size] * len(vals)
+
+    v_min = min(non_zero)
+    v_max = max(non_zero)
+
+    if v_max - v_min < 1e-9:
+        return [base_size] * len(vals)
+
+    sizes = []
+    for v in vals:
+        if v <= 0:
+            scale = min_scale
+        else:
+            t = (v - v_min) / (v_max - v_min)
+            scale = min_scale + (max_scale - min_scale) * t
+        sizes.append(round(base_size * scale))
+    return sizes
+
 
 
 def build_tab1_raw(
@@ -213,23 +262,85 @@ def tighten_figure(fig, height=420):
     return fig
 
 
+# ---------------------------------------------
+# ★ BI_FONT_SIZE_MST: 폰트 사이즈 설정
+#   - 실제 조회는 아래 DB 커넥션 이후
+# ---------------------------------------------
+FONT_SIZE_DEFAULTS = {
+    "CHART_DESCRIPTION": 12,
+    "CHART_TITLE": 18,
+    "CHART_X_Y_LABEL": 12,
+    "CHART_NUMERIC": 12,
+    "CHART_LEGEND": 11,
+}
+font_size_map = FONT_SIZE_DEFAULTS.copy()
+
+
+def get_font_size(loc: str) -> int:
+    """BI_FONT_SIZE_MST 에서 폰트 사이즈 조회 (없으면 기본값)"""
+    return font_size_map.get(loc, FONT_SIZE_DEFAULTS.get(loc, 12))
+
+
+def apply_axis_legend_fonts(fig, xaxis_title=None, yaxis_title=None):
+    """X/Y 축 라벨 + 눈금 + 범례 폰트를 BI_FONT_SIZE_MST 기준으로 일괄 적용"""
+    axis_font_size = get_font_size("CHART_X_Y_LABEL")
+    legend_font_size = get_font_size("CHART_LEGEND")
+
+    layout_kwargs = {}
+    if xaxis_title is not None:
+        layout_kwargs["xaxis_title"] = xaxis_title
+    if yaxis_title is not None:
+        layout_kwargs["yaxis_title"] = yaxis_title
+
+    fig.update_layout(
+        **layout_kwargs,
+        xaxis=dict(
+            title_font=dict(size=axis_font_size),
+            tickfont=dict(size=axis_font_size),
+        ),
+        yaxis=dict(
+            title_font=dict(size=axis_font_size),
+            tickfont=dict(size=axis_font_size),
+        ),
+        legend=dict(
+            font=dict(size=legend_font_size)
+        ),
+    )
+    return fig
+
+
 def chart_card(caption_text: str, fig, category_name: str = None):
     """
     설명 캡션(연한 회색) + (선택된 카테고리명) + 차트를 네모난 테두리로 감싸는 카드
+    ※ 폰트 크기: BI_FONT_SIZE_MST (CHART_DESCRIPTION / CHART_TITLE) 사용
     """
     fig = tighten_figure(fig)
     with st.container(border=True):
         st.markdown('<div class="chart-card">', unsafe_allow_html=True)
-        # 1줄: 기존 캡션 (연한 회색 작은 글씨)
-        st.caption(caption_text)
 
-        # 2줄: 선택된 카테고리명 (가운데 정렬, 검정, 조금 더 큰 폰트)
+        # 1줄: 차트 설명 (BI_FONT_SIZE_MST.CHART_DESCRIPTION)
+        desc_size = get_font_size("CHART_DESCRIPTION")
+        st.markdown(
+            f"""
+            <div style="
+                font-size:{desc_size}px;
+                color:rgba(0,0,0,0.6);
+                margin-bottom:0.15rem;
+            ">
+                {caption_text}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # 2줄: 선택된 카테고리명 (가운데 정렬, BI_FONT_SIZE_MST.CHART_TITLE)
         if category_name:
+            title_size = get_font_size("CHART_TITLE")
             st.markdown(
                 f"""
                 <div style="
                     text-align:center;
-                    font-size:1.1rem;
+                    font-size:{title_size}px;
                     font-weight:600;
                     color:#555555;
                     margin-top:2px;
@@ -268,7 +379,7 @@ def login():
     <style>
     /* 로그인 페이지에서만 적용됨 (로그인 후에는 login() 을 안 타기 때문에) */
     .block-container {
-        max-width: 460px;          /* ✅ 화면이 아무리 커져도 가로 460px 정도만 사용 */
+        max-width: 460px;          /* ? 화면이 아무리 커져도 가로 460px 정도만 사용 */
         padding-top: 2rem;
     }
     .login-title {
@@ -292,7 +403,6 @@ def login():
 
     # 타이틀/부제목
     st.markdown('<div class="login-title">대시보드 로그인</div>', unsafe_allow_html=True)
-    #st.markdown('<div class="login-subtitle">사내 계정으로 로그인해주세요</div>', unsafe_allow_html=True)
 
     # 입력창과 버튼을 하나의 카드처럼
     with st.container(border=True):
@@ -320,7 +430,6 @@ def login():
             st.error(f"DB 연결 오류: {e}")
 
 
-
 if 'login' not in st.session_state:
     st.session_state['login'] = False
 
@@ -333,6 +442,31 @@ if not st.session_state['login']:
 # 2) DB 연결
 # -------------------------
 conn = get_conn()
+
+# -------------------------
+# ★ BI_FONT_SIZE_MST 조회
+# -------------------------
+try:
+    df_font = pd.read_sql(
+        """
+        SELECT FONT_LOC, FONT_SIZE
+        FROM BI_FONT_SIZE_MST
+        """,
+        conn,
+    )
+    font_size_map = FONT_SIZE_DEFAULTS.copy()
+    for _, row in df_font.iterrows():
+        loc = str(row["FONT_LOC"]).strip()
+        size = row["FONT_SIZE"]
+        if loc and pd.notna(size):
+            try:
+                font_size_map[loc] = int(size)
+            except Exception:
+                # 숫자로 변환 안되면 해당 레코드는 무시
+                pass
+except Exception:
+    # 조회 실패 시 기본값 그대로 사용
+    font_size_map = FONT_SIZE_DEFAULTS.copy()
 
 
 # -------------------------
@@ -361,6 +495,48 @@ channels = pd.read_sql(
     """,
     conn
 )["MARKET_TYPE_NAME"].tolist()
+
+# 색상 테이블 (BI_COLOR_MST) 조회
+try:
+    df_color = pd.read_sql(
+        """
+        SELECT [선택타입] AS TYPE,
+               [색상순번] AS COLOR_SEQ,
+               [색상코드] AS COLOR_CODE,
+               COMMENT1,
+               COMMENT2,
+               COMMENT3
+        FROM BI_COLOR_MST
+        """,
+        conn,
+    )
+    df_color_manuf = (
+        df_color[df_color["TYPE"] == "MANUF_RANK"]
+        .sort_values("COLOR_SEQ")
+        .reset_index(drop=True)
+    )
+    df_color_channel = (
+        df_color[df_color["TYPE"] == "CHANNEL"]
+        .sort_values("COLOR_SEQ")
+        .reset_index(drop=True)
+    )
+    manuf_palette = df_color_manuf["COLOR_CODE"].tolist()
+    channel_palette = df_color_channel["COLOR_CODE"].tolist()
+
+    # CHANNEL의 COMMENT3 = 채널명 으로 색상 매핑
+    bi_channel_color_map = {}
+    for _, row in df_color_channel.iterrows():
+        ch_name = str(row.get("COMMENT3", "")).strip()
+        color_code = str(row.get("COLOR_CODE", "")).strip()
+        if ch_name and color_code:
+            bi_channel_color_map[ch_name] = color_code
+except Exception:
+    # 색상 테이블 조회 실패 시 기존 로직을 위한 기본값
+    df_color_manuf = pd.DataFrame()
+    df_color_channel = pd.DataFrame()
+    manuf_palette = []
+    channel_palette = []
+    bi_channel_color_map = {}
 
 # 필터 영역 카드로 묶기
 with st.container(border=True):
@@ -484,11 +660,29 @@ df_others_grp["MANUF"] = "기타"
 
 df_manuf_final = pd.concat([df_top, df_others_grp], ignore_index=True).sort_values("MONTHLY")
 
-# 제조사 컬러맵
-unique_manufs = sorted(df_manuf_final["MANUF"].unique())
-color_sequence = px.colors.qualitative.Set2
-color_map = {manuf: color_sequence[i % len(color_sequence)] for i, manuf in enumerate(unique_manufs)}
-if "기타" in color_map:
+# 제조사 컬러맵 (제조사 순위 기준)
+color_sequence = manuf_palette
+
+# top_list는 이미 "매출 기준 내림차순 TOP N" 순서로 만들어져 있음
+ranked_manufs = [m for m in top_list if m in df_manuf_final["MANUF"].unique()]
+
+color_map = {}
+
+# 1) TOP 순위 제조사: 순위 1 → 첫 번째 색, 순위 2 → 두 번째 색 ...
+for i, manuf in enumerate(ranked_manufs):
+    color_map[manuf] = color_sequence[i % len(color_sequence)]
+
+# 2) (혹시 있을 수 있는) 그 외 개별 제조사들: 그 뒤 색부터 순차 부여
+others_manufs = [
+    m for m in df_manuf_final["MANUF"].unique()
+    if m not in ranked_manufs and m != "기타"
+]
+start_idx = len(ranked_manufs)
+for j, manuf in enumerate(others_manufs):
+    color_map[manuf] = color_sequence[(start_idx + j) % len(color_sequence)]
+
+# 3) TOP 밖 제조사들이 합쳐진 "기타"는 항상 연한 회색
+if "기타" in df_manuf_final["MANUF"].unique():
     color_map["기타"] = "#B0B0B0"
 
 
@@ -584,7 +778,7 @@ if not df_share_year.empty:
 elif not df_manuf_year_final.empty:
     base_order_year = sorted(df_manuf_year_final["MANUF"].unique())
 else:
-    base_order_year = unique_manufs
+    base_order_year = ""
 sort_order_year = move_others_to_end(base_order_year)
 
 if not df_share_quarter.empty:
@@ -600,7 +794,7 @@ if not df_share_quarter.empty:
 elif not df_manuf_quarter_final.empty:
     base_order_quarter = sorted(df_manuf_quarter_final["MANUF"].unique())
 else:
-    base_order_quarter = unique_manufs
+    base_order_quarter = ""
 sort_order_quarter = move_others_to_end(base_order_quarter)
 
 if not df_share.empty:
@@ -614,7 +808,7 @@ if not df_share.empty:
         .tolist()
     )
 else:
-    base_order_month = unique_manufs
+    base_order_month = ""
 sort_order_month = move_others_to_end(base_order_month)
 
 
@@ -676,8 +870,21 @@ df_channel_month = (
 )
 
 channel_name_sort_order = sorted(df_channel_month["MARKET_TYPE_NAME"].unique())
-color_sequence_channel = px.colors.qualitative.Plotly
-channel_color_map = {ch: color_sequence_channel[i % len(color_sequence_channel)] for i, ch in enumerate(channel_name_sort_order)}
+
+# 채널 컬러맵 (BI_COLOR_MST - COMMENT3 기준)
+default_seq_channel = px.colors.qualitative.Plotly
+channel_color_map = {}
+for i, ch in enumerate(channel_name_sort_order):
+    if bi_channel_color_map:
+        color_code = bi_channel_color_map.get(ch)
+        if not color_code:
+            if i < len(channel_palette):
+                color_code = channel_palette[i]
+            else:
+                color_code = default_seq_channel[i % len(default_seq_channel)]
+    else:
+        color_code = default_seq_channel[i % len(default_seq_channel)]
+    channel_color_map[ch] = color_code
 
 
 # -------------------------
@@ -685,19 +892,10 @@ channel_color_map = {ch: color_sequence_channel[i % len(color_sequence_channel)]
 # -------------------------
 tab1, tab2, tab3 = st.tabs(["카테고리별 판매 추이", "카테고리/채널별 판매 추이", "제조사별 판매 추이"])
 
-# ✅ 탭 아래 라인 추가
-#st.markdown("""
-#<div style="width:100%; margin-top:0.8rem;">
-#    <hr style="border:1px solid #d0d0d0;">
-#</div>
-#<div style="height:1.2rem;"></div>
-#""", unsafe_allow_html=True)
-
 # ======================================================
-# ◆ TAB1 ? 카테고리별 판매 추이
+# ◆ TAB1 – 카테고리별 판매 추이
 # ======================================================
 with tab1:
-    #st.header(f"{category_group} / {selected_channel_name}")
     st.markdown("<div style='height:1.5rem;'></div>", unsafe_allow_html=True)
 
     # ===== 년도 기준 =====
@@ -710,26 +908,22 @@ with tab1:
             df_year_plot_sorted,
             x="YEARLY",
             y="AMOUNT_P",
-            text="AMOUNT_P",   # ✅ 막대 안에 숫자 표시
+            text="AMOUNT_P",
             labels={"AMOUNT_P": "판매액(백만원)"}
         )
 
         fig_year.update_traces(
-            texttemplate='%{y:,.0f}',          # 920,622 형식
-            textposition='inside',             # ✅ 막대 내부 상단 쪽
+            texttemplate='%{y:,.0f}',
+            textposition='inside',
             textfont=dict(
-                color="rgba(0,0,0,0.7)",       # ✅ 연한 검정(회색 느낌)
-                size=12
+                color="rgba(0,0,0,0.7)",
+                size=get_font_size("CHART_NUMERIC"),   # ★ 막대 숫자 폰트
             ),
             hovertemplate='YEARLY=%{x}<br>판매액(백만원)=%{y:,.1f}<extra></extra>',
-            marker_color="#b3d9ff",             # 연한 파란 막대
-            width=0.7  # 막대 폭 줄이기
+            marker_color=bi_channel_color_map.get(channel, "#b3d9ff"),
+            width=0.7
         )
 
-        fig_year.update_layout(
-            yaxis_title="판매액(백만원)",
-            xaxis_title="년도"
-        )
         fig_year.update_yaxes(tickformat=",.0f", rangemode="tozero")
         fig_year.update_xaxes(categoryorder="category ascending")
 
@@ -737,7 +931,7 @@ with tab1:
         years = df_year_plot_sorted["YEARLY"].tolist()
         amounts = df_year_plot_sorted["AMOUNT_P"].tolist()
 
-        for i in range(1, len(years)):  # 두 번째 연도부터
+        for i in range(1, len(years)):
             prev_val = amounts[i - 1]
             curr_val = amounts[i]
             if prev_val == 0:
@@ -747,7 +941,6 @@ with tab1:
             arrow = "▲" if rate >= 0 else "▼"
             color = "red" if rate >= 0 else "blue"
 
-            # ✅ 막대 사이 중앙(x), 두 막대 높이의 “중간” 위치(y)
             x_pos = i - 0.5
             y_pos = min(prev_val, curr_val) * 0.55
 
@@ -758,17 +951,17 @@ with tab1:
                 yref="y",
                 text=f"{arrow} {abs(rate):.1f}%",
                 showarrow=False,
+                # ★ 성장률은 CHART_NUMERIC 대상이 아님 → 14 고정
                 font=dict(color=color, size=14)
             )
         # ----------------------------------------------------
 
+        fig_year = apply_axis_legend_fonts(fig_year, xaxis_title="년도", yaxis_title="판매액(백만원)")
         chart_card(f"년도별 / 채널별 판매액 (백만원, {selected_channel_name})", fig_year, category_group)
     else:
         with st.container(border=True):
             st.caption(f"년도별 / 채널별 판매액 (백만원, {selected_channel_name})")
             st.info("년도(YEARLY) 정보가 없어 년도별 차트를 표시할 수 없습니다.")
-
-
 
     # ===== 분기 기준 =====
     section_title("분기 기준")
@@ -777,13 +970,15 @@ with tab1:
             df_q_plot, x="QUARTERLY", y="AMOUNT_P",
             markers=True, labels={"AMOUNT_P": "판매액(백만원)"}
         )
+
         fig_q.update_traces(
-            hovertemplate='QUARTERLY=%{x}<br>판매액(백만원)=%{y:,.1f}<extra></extra>'
+            hovertemplate='QUARTERLY=%{x}<br>판매액(백만원)=%{y:,.1f}<extra></extra>',
+            line_color=bi_channel_color_map.get(channel, "#6aa8ff")
         )
-        fig_q.update_layout(yaxis_title="판매액(백만원)", xaxis_title="분기")
         fig_q.update_yaxes(tickformat=",.0f", rangemode="tozero")
         fig_q.update_xaxes(categoryorder="category ascending")
 
+        fig_q = apply_axis_legend_fonts(fig_q, xaxis_title="분기", yaxis_title="판매액(백만원)")
         chart_card(f"분기별 / 채널별 판매액 (백만원, {selected_channel_name})", fig_q, category_group)
     else:
         with st.container(border=True):
@@ -796,13 +991,15 @@ with tab1:
         df_m_plot, x="MONTHLY", y="AMOUNT_P",
         markers=True, labels={"AMOUNT_P": "판매액(백만원)"}
     )
+
     fig_m.update_traces(
-        hovertemplate='MONTHLY=%{x}<br>판매액(백만원)=%{y:,.1f}<extra></extra>'
+        hovertemplate='MONTHLY=%{x}<br>판매액(백만원)=%{y:,.1f}<extra></extra>',
+        line_color=bi_channel_color_map.get(channel, "#6aa8ff")
     )
-    fig_m.update_layout(yaxis_title="판매액(백만원)", xaxis_title="월")
     fig_m.update_yaxes(tickformat=",.0f", rangemode="tozero")
     fig_m.update_xaxes(categoryorder="category ascending")
 
+    fig_m = apply_axis_legend_fonts(fig_m, xaxis_title="월", yaxis_title="판매액(백만원)")
     chart_card(f"월별 / 채널별 판매액 (백만원, {selected_channel_name})", fig_m, category_group)
 
     # ----- TAB1 RAW DATA -----
@@ -812,24 +1009,38 @@ with tab1:
 
 
 # ======================================================
-# ◆ TAB2 ? 카테고리/채널별 판매 추이
+# ◆ TAB2 – 카테고리/채널별 판매 추이
 # ======================================================
 with tab2:
-    #st.header(f"{category_group} / {selected_channel_name}")
     st.markdown("<div style='height:1.5rem;'></div>", unsafe_allow_html=True)
-    
-    #section_title("표시할 채널 선택 (선택된 채널로 점유율 재계산)")
 
-    # section_title(...) 대신 직접 마크다운으로 타이틀 + margin 조정
     st.markdown(
         """
-        <p class="section-title" style="margin-bottom:-0.75rem;">
+        <p class="section-title" style="margin-bottom:-0.6rem;">
             표시할 채널 선택 (선택된 채널로 점유율 재계산)
         </p>
         """,
         unsafe_allow_html=True,
     )
-
+    
+    # ⬇️ 여기 CSS 만 교체
+    st.markdown(
+        """
+        <style>
+        /* multiselect 기본 label + 위 여백 제거 */
+        div[data-testid="stMultiSelect"] label {
+            display: none !important;
+            margin-bottom: 0 !important;
+        }
+        div[data-testid="stMultiSelect"] > div:first-child {
+            padding-top: 0 !important;
+            margin-top: -6px !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    
     selected_channels = st.multiselect(
         "",
         options=channel_name_sort_order,
@@ -882,6 +1093,8 @@ with tab2:
             # ---------------- 기본 스택 막대 차트 ----------------
             fig_channel_year = go.Figure()
 
+            numeric_font = get_font_size("CHART_NUMERIC")
+
             for ch in channel_order_year:
                 df_temp = df_channel_year_trend[
                     df_channel_year_trend["MARKET_TYPE_NAME"] == ch
@@ -896,18 +1109,15 @@ with tab2:
                     marker_color=channel_color_map.get(ch),
                     text=df_temp["AMOUNT_M"].apply(lambda v: f"{v:,.0f}"),
                     textposition="inside",
+                    textfont=dict(size=numeric_font),   # ★ 막대 숫자 폰트
                     width=0.7
                 ))
 
-            fig_channel_year.update_layout(
-                barmode="stack",
-                yaxis_title="판매액(백만원)",
-                xaxis_title="년도",
-                legend_title="채널"
-            )
             fig_channel_year.update_yaxes(tickformat=",.0f", rangemode="tozero")
             fig_channel_year.update_xaxes(categoryorder="category ascending")
-            # ------------------------------------------------------
+            
+            # ★ 누적 막대 그래프 설정 복원
+            fig_channel_year.update_layout(barmode="stack")
 
             # ---------------- 채널별 성장률 계산 ----------------
             df_growth = df_channel_year_trend.copy()
@@ -923,7 +1133,6 @@ with tab2:
             df_growth["BOTTOM"] = df_growth["CUM"] - df_growth["AMOUNT_M"]
             df_growth["MID"] = df_growth["BOTTOM"] + df_growth["AMOUNT_M"] / 2
 
-            # -------- 성장률 표시 (막대 사이 중앙 위치) --------
             for ch in channel_order_year:
                 sub = df_growth[df_growth["MARKET_TYPE_NAME"] == ch].sort_values("YEARLY")
 
@@ -931,7 +1140,7 @@ with tab2:
                 vals = sub["AMOUNT_M"].tolist()
                 mids = sub["MID"].tolist()
 
-                for i in range(1, len(years)):   # 두 번째 연도부터 표시
+                for i in range(1, len(years)):
                     prev_val = vals[i - 1]
                     curr_val = vals[i]
                     if prev_val == 0:
@@ -941,10 +1150,7 @@ with tab2:
                     arrow = "▲" if rate >= 0 else "▼"
                     color = "red" if rate >= 0 else "blue"
 
-                    # ✅ 막대와 막대 사이 중간 위치 (예: 0.5, 1.5)
                     x_pos = i - 0.5
-
-                    # ✅ 해당 채널 스택의 높이 중간
                     y_pos = mids[i]
 
                     fig_channel_year.add_annotation(
@@ -954,10 +1160,15 @@ with tab2:
                         yref="y",
                         text=f"{arrow} {abs(rate):.1f}%",
                         showarrow=False,
-                        font=dict(color=color, size=14),   # ✅ 폰트 크게
+                        # ★ 성장률은 NUMERIC 대상 아님
+                        font=dict(color=color, size=14),
                     )
-            # ----------------------------------------------------
 
+            fig_channel_year = apply_axis_legend_fonts(
+                fig_channel_year,
+                xaxis_title="년도",
+                yaxis_title="판매액(백만원)"
+            )
             chart_card("년도별 / 채널별 판매액 (백만원)", fig_channel_year, category_group)
 
         else:
@@ -965,12 +1176,10 @@ with tab2:
                 st.caption("년도별 / 채널별 판매액 (백만원)")
                 st.info("년도(YEARLY) 기준 채널 데이터가 없습니다.")
 
-
-
-
     with col_y2:
         fig_channel_year_share = go.Figure()
         if not df_channel_year_share_pivot_sel.empty:
+            numeric_font = get_font_size("CHART_NUMERIC")
             for ch in df_channel_year_share_pivot_sel.columns:
                 fig_channel_year_share.add_trace(go.Bar(
                     x=df_channel_year_share_pivot_sel.index,
@@ -979,16 +1188,22 @@ with tab2:
                     marker_color=channel_color_map.get(ch),
                     text=df_channel_year_share_pivot_sel[ch].apply(lambda x: f"{x:.1f}%"),
                     textposition="inside",
+                    textfont=dict(size=numeric_font),  # ★ 점유율 숫자 폰트
                     width=0.7
                 ))
             fig_channel_year_share.update_layout(
                 barmode="stack",
-                yaxis=dict(range=[0, 100], title="점유율 (%)"),
-                xaxis=dict(title="년도"),
-                legend_title="채널"
+                yaxis=dict(range=[0, 100]),
+                xaxis=dict(),
+                # ✅ 폰트가 자동으로 작아지는 것 방지
+                #uniformtext_minsize=numeric_font,
+                #uniformtext_mode="show"
             )
-            fig_channel_year_share.update_xaxes(categoryorder="category ascending")
-
+            fig_channel_year_share = apply_axis_legend_fonts(
+                fig_channel_year_share,
+                xaxis_title="년도",
+                yaxis_title="점유율 (%)"
+            )
             chart_card("년도별 / 채널별 시장점유율 (%)", fig_channel_year_share, category_group)
         else:
             with st.container(border=True):
@@ -1031,10 +1246,14 @@ with tab2:
                 labels={"AMOUNT_M": "판매액(백만원)", "MARKET_TYPE_NAME": "채널"},
                 category_orders={"MARKET_TYPE_NAME": selected_channels}
             )
-            fig_channel_quarter.update_layout(yaxis_title="판매액(백만원)", xaxis_title="분기", legend_title="채널")
             fig_channel_quarter.update_yaxes(tickformat=",.0f", rangemode="tozero")
             fig_channel_quarter.update_xaxes(categoryorder="category ascending")
 
+            fig_channel_quarter = apply_axis_legend_fonts(
+                fig_channel_quarter,
+                xaxis_title="분기",
+                yaxis_title="판매액(백만원)"
+            )
             chart_card("분기별 / 채널별 판매액 (백만원)", fig_channel_quarter, category_group)
         else:
             with st.container(border=True):
@@ -1044,6 +1263,7 @@ with tab2:
     with col_q2:
         fig_channel_quarter_share = go.Figure()
         if not df_channel_quarter_share_pivot_sel.empty:
+            numeric_font = get_font_size("CHART_NUMERIC")
             for ch in df_channel_quarter_share_pivot_sel.columns:
                 fig_channel_quarter_share.add_trace(go.Bar(
                     x=df_channel_quarter_share_pivot_sel.index,
@@ -1051,16 +1271,19 @@ with tab2:
                     name=ch,
                     marker_color=channel_color_map.get(ch),
                     text=df_channel_quarter_share_pivot_sel[ch].apply(lambda x: f"{x:.1f}%"),
-                    textposition="inside"
+                    textposition="inside",
+                    textfont=dict(size=numeric_font)
                 ))
             fig_channel_quarter_share.update_layout(
                 barmode="stack",
-                yaxis=dict(range=[0, 100], title="점유율 (%)"),
-                xaxis=dict(title="분기"),
-                legend_title="채널"
+                yaxis=dict(range=[0, 100]),
+                xaxis=dict(),
             )
-            fig_channel_quarter_share.update_xaxes(categoryorder="category ascending")
-
+            fig_channel_quarter_share = apply_axis_legend_fonts(
+                fig_channel_quarter_share,
+                xaxis_title="분기",
+                yaxis_title="점유율 (%)"
+            )
             chart_card("분기별 / 채널별 시장점유율 (%)", fig_channel_quarter_share, category_group)
         else:
             with st.container(border=True):
@@ -1102,10 +1325,14 @@ with tab2:
                 labels={"AMOUNT_M": "판매액(백만원)", "MARKET_TYPE_NAME": "채널"},
                 category_orders={"MARKET_TYPE_NAME": selected_channels}
             )
-            fig_channel_month.update_layout(yaxis_title="판매액(백만원)", xaxis_title="월", legend_title="채널")
             fig_channel_month.update_yaxes(tickformat=",.0f", rangemode="tozero")
             fig_channel_month.update_xaxes(categoryorder="category ascending")
 
+            fig_channel_month = apply_axis_legend_fonts(
+                fig_channel_month,
+                xaxis_title="월",
+                yaxis_title="판매액(백만원)"
+            )
             chart_card("월별 / 채널별 판매액 (백만원)", fig_channel_month, category_group)
         else:
             with st.container(border=True):
@@ -1115,6 +1342,7 @@ with tab2:
     with col_m2:
         fig_channel_month_share = go.Figure()
         if not df_channel_month_share_pivot_sel.empty:
+            numeric_font = get_font_size("CHART_NUMERIC")
             for ch in df_channel_month_share_pivot_sel.columns:
                 fig_channel_month_share.add_trace(go.Bar(
                     x=df_channel_month_share_pivot_sel.index,
@@ -1122,16 +1350,19 @@ with tab2:
                     name=ch,
                     marker_color=channel_color_map.get(ch),
                     text=df_channel_month_share_pivot_sel[ch].apply(lambda x: f"{x:.1f}%"),
-                    textposition="inside"
+                    textposition="inside",
+                    textfont=dict(size=numeric_font)
                 ))
             fig_channel_month_share.update_layout(
                 barmode="stack",
-                yaxis=dict(range=[0, 100], title="점유율 (%)"),
-                xaxis=dict(title="월"),
-                legend_title="채널"
+                yaxis=dict(range=[0, 100]),
+                xaxis=dict(),
             )
-            fig_channel_month_share.update_xaxes(categoryorder="category ascending")
-
+            fig_channel_month_share = apply_axis_legend_fonts(
+                fig_channel_month_share,
+                xaxis_title="월",
+                yaxis_title="점유율 (%)"
+            )
             chart_card("월별 / 채널별 시장점유율 (%)", fig_channel_month_share, category_group)
         else:
             with st.container(border=True):
@@ -1196,12 +1427,11 @@ with tab2:
 
 
 # ======================================================
-# ◆ TAB3 ? 제조사별 판매
+# ◆ TAB3 – 제조사별 판매
 # ======================================================
 with tab3:
-    #st.header(f"{category_group} / {selected_channel_name}")
     st.markdown("<div style='height:1.5rem;'></div>", unsafe_allow_html=True)
-    
+
     # -------------------- 1) 년도 기준 -------------------->
     section_title("년도 기준")
 
@@ -1219,14 +1449,14 @@ with tab3:
 
     with col_y1:
         if not df_manuf_year_trend.empty:
-            # 제조사 표시 순서
             if not df_share_year_pivot.empty:
                 manuf_order_year = list(df_share_year_pivot.columns)
             else:
                 manuf_order_year = sort_order_year
 
-            # -------- 기본 스택 막대 차트 --------
             fig_manuf_year = go.Figure()
+            numeric_font = get_font_size("CHART_NUMERIC")
+
             for manuf in manuf_order_year:
                 df_temp = df_manuf_year_trend[df_manuf_year_trend["MANUF"] == manuf]
                 if df_temp.empty:
@@ -1238,18 +1468,15 @@ with tab3:
                     marker_color=color_map.get(manuf),
                     text=df_temp["AMOUNT_M"].apply(lambda v: f"{v:,.0f}"),
                     textposition="inside",
+                    textfont=dict(size=numeric_font),  # ★ 막대 숫자 폰트
                     width=0.7
                 ))
 
-            fig_manuf_year.update_layout(
-                barmode="stack",
-                yaxis_title="판매액(백만원)",
-                xaxis_title="년도",
-                legend_title="제조사"
-            )
             fig_manuf_year.update_yaxes(tickformat=",.0f", rangemode="tozero")
             fig_manuf_year.update_xaxes(categoryorder="category ascending")
-            # ------------------------------------
+            
+            # ★ 누적 막대 그래프 설정 복원
+            fig_manuf_year.update_layout(barmode="stack")
 
             # -------- 제조사별 성장률 계산 --------
             df_growth_m = df_manuf_year_trend.copy()
@@ -1260,12 +1487,10 @@ with tab3:
             )
             df_growth_m = df_growth_m.sort_values(["YEARLY", "MANUF"])
 
-            # 연도별 스택 누적 및 중간 높이
             df_growth_m["CUM"] = df_growth_m.groupby("YEARLY")["AMOUNT_M"].cumsum()
             df_growth_m["BOTTOM"] = df_growth_m["CUM"] - df_growth_m["AMOUNT_M"]
             df_growth_m["MID"] = df_growth_m["BOTTOM"] + df_growth_m["AMOUNT_M"] / 2
 
-            # 막대와 막대 사이 중앙 위치에 성장률(화살표+숫자+%) 표시
             for manuf in manuf_order_year:
                 sub = df_growth_m[df_growth_m["MANUF"] == manuf].sort_values("YEARLY")
 
@@ -1273,7 +1498,7 @@ with tab3:
                 vals = sub["AMOUNT_M"].tolist()
                 mids = sub["MID"].tolist()
 
-                for i in range(1, len(years)):   # 두 번째 연도부터
+                for i in range(1, len(years)):
                     prev_val = vals[i - 1]
                     curr_val = vals[i]
                     if prev_val == 0:
@@ -1283,9 +1508,7 @@ with tab3:
                     arrow = "▲" if rate >= 0 else "▼"
                     color = "red" if rate >= 0 else "blue"
 
-                    # 두 연도(Y2022, Y2023 ...) 사이의 중앙 x 위치 (0.5, 1.5, ...)
                     x_pos = i - 0.5
-                    # 해당 제조사 스택의 세로 중앙
                     y_pos = mids[i]
 
                     fig_manuf_year.add_annotation(
@@ -1295,10 +1518,15 @@ with tab3:
                         yref="y",
                         text=f"{arrow} {abs(rate):.1f}%",
                         showarrow=False,
-                        font=dict(color=color, size=14),  # 폰트 크게
+                        # ★ 성장률은 NUMERIC 대상 아님
+                        font=dict(color=color, size=14),
                     )
-            # ------------------------------------
 
+            fig_manuf_year = apply_axis_legend_fonts(
+                fig_manuf_year,
+                xaxis_title="년도",
+                yaxis_title="판매액(백만원)"
+            )
             chart_card(f"년도별 / 제조사별 판매액 (백만원, {selected_channel_name})", fig_manuf_year, category_group)
         else:
             with st.container(border=True):
@@ -1308,6 +1536,8 @@ with tab3:
     with col_y2:
         fig_year_share = go.Figure()
         if not df_share_year_pivot.empty:
+            numeric_font = get_font_size("CHART_NUMERIC")
+            
             for manuf in df_share_year_pivot.columns:
                 fig_year_share.add_trace(go.Bar(
                     x=df_share_year_pivot.index,
@@ -1316,17 +1546,24 @@ with tab3:
                     marker_color=color_map.get(manuf),
                     text=df_share_year_pivot[manuf].apply(lambda x: f"{x:.1f}%"),
                     textposition="inside",
+                    textfont=dict(size=numeric_font),
                     width=0.7
                 ))
+                
             fig_year_share.update_layout(
                 barmode="stack",
-                yaxis=dict(range=[0, 100], title="점유율 (%)"),
-                xaxis=dict(title="년도"),
-                legend_title="제조사",
-                legend_traceorder="reversed"
+                yaxis=dict(range=[0, 100]),
+                xaxis=dict(),
+                legend_traceorder="reversed",
+                # ✅ 폰트가 자동으로 작아지는 것 방지
+                #uniformtext_minsize=numeric_font,
+                #uniformtext_mode="show"
             )
-            fig_year_share.update_xaxes(categoryorder="category ascending")
-
+            fig_year_share = apply_axis_legend_fonts(
+                fig_year_share,
+                xaxis_title="년도",
+                yaxis_title="점유율 (%)"
+            )
             chart_card(f"년도별 / 제조사별 시장점유율 (%, {selected_channel_name})", fig_year_share, category_group)
         else:
             with st.container(border=True):
@@ -1361,10 +1598,14 @@ with tab3:
                 labels={"AMOUNT_M": "판매액(백만원)", "MANUF": "제조사"},
                 category_orders={"MANUF": sort_order_quarter}
             )
-            fig_manuf_quarter.update_layout(yaxis_title="판매액(백만원)", xaxis_title="분기", legend_title="제조사")
             fig_manuf_quarter.update_yaxes(tickformat=",.0f", rangemode="tozero")
             fig_manuf_quarter.update_xaxes(categoryorder="category ascending")
 
+            fig_manuf_quarter = apply_axis_legend_fonts(
+                fig_manuf_quarter,
+                xaxis_title="분기",
+                yaxis_title="판매액(백만원)"
+            )
             chart_card(f"분기별 / 제조사별 판매액 (백만원, {selected_channel_name})", fig_manuf_quarter, category_group)
         else:
             with st.container(border=True):
@@ -1374,6 +1615,7 @@ with tab3:
     with col_q2:
         fig_quarter_share = go.Figure()
         if not df_share_quarter_pivot.empty:
+            numeric_font = get_font_size("CHART_NUMERIC")
             for manuf in df_share_quarter_pivot.columns:
                 fig_quarter_share.add_trace(go.Bar(
                     x=df_share_quarter_pivot.index,
@@ -1381,17 +1623,20 @@ with tab3:
                     name=manuf,
                     marker_color=color_map.get(manuf),
                     text=df_share_quarter_pivot[manuf].apply(lambda x: f"{x:.1f}%"),
-                    textposition="inside"
+                    textposition="inside",
+                    textfont=dict(size=numeric_font)
                 ))
             fig_quarter_share.update_layout(
                 barmode="stack",
-                yaxis=dict(range=[0, 100], title="점유율(%)"),
-                xaxis=dict(title="분기"),
-                legend_title="제조사",
+                yaxis=dict(range=[0, 100]),
+                xaxis=dict(),
                 legend_traceorder="reversed"
             )
-            fig_quarter_share.update_xaxes(categoryorder="category ascending")
-
+            fig_quarter_share = apply_axis_legend_fonts(
+                fig_quarter_share,
+                xaxis_title="분기",
+                yaxis_title="점유율(%)"
+            )
             chart_card(f"분기별 / 제조사별 시장점유율 (%, {selected_channel_name})", fig_quarter_share, category_group)
         else:
             with st.container(border=True):
@@ -1426,10 +1671,14 @@ with tab3:
                 labels={"AMOUNT_M": "판매액(백만원)", "MANUF": "제조사"},
                 category_orders={"MANUF": sort_order_month}
             )
-            fig_trend.update_layout(yaxis_title="판매액(백만원)", xaxis_title="월", legend_title="제조사")
             fig_trend.update_yaxes(tickformat=",.0f", rangemode="tozero")
             fig_trend.update_xaxes(categoryorder="category ascending")
 
+            fig_trend = apply_axis_legend_fonts(
+                fig_trend,
+                xaxis_title="월",
+                yaxis_title="판매액(백만원)"
+            )
             chart_card(f"월별 / 제조사별 판매액 (백만원, {selected_channel_name})", fig_trend, category_group)
         else:
             with st.container(border=True):
@@ -1439,6 +1688,7 @@ with tab3:
     with col_m2:
         fig_month_share = go.Figure()
         if not df_share_pivot.empty:
+            numeric_font = get_font_size("CHART_NUMERIC")
             for manuf in df_share_pivot.columns:
                 fig_month_share.add_trace(go.Bar(
                     x=df_share_pivot.index,
@@ -1446,17 +1696,20 @@ with tab3:
                     name=manuf,
                     marker_color=color_map.get(manuf),
                     text=df_share_pivot[manuf].apply(lambda x: f"{x:.1f}%"),
-                    textposition="inside"
+                    textposition="inside",
+                    textfont=dict(size=numeric_font)
                 ))
             fig_month_share.update_layout(
                 barmode="stack",
-                yaxis=dict(range=[0, 100], title="점유율 (%)"),
-                xaxis=dict(title="월"),
-                legend_title="제조사",
+                yaxis=dict(range=[0, 100]),
+                xaxis=dict(),
                 legend_traceorder="reversed"
             )
-            fig_month_share.update_xaxes(categoryorder="category ascending")
-
+            fig_month_share = apply_axis_legend_fonts(
+                fig_month_share,
+                xaxis_title="월",
+                yaxis_title="점유율 (%)"
+            )
             chart_card(f"월별 / 제조사별 시장점유율 (%, {selected_channel_name})", fig_month_share, category_group)
         else:
             with st.container(border=True):
